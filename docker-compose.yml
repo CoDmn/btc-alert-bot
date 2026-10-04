@@ -1,8 +1,0 @@
-services:
-  btc-alert-bot:
-    build: .
-    restart: unless-stopped
-    env_file: .env
-    volumes:
-      - ./config.toml:/app/config.toml:ro   # modifie config.toml sur le VPS, le bot le recharge seul
-      - ./data:/app/data                    # état, historique des signaux (signals.csv)
