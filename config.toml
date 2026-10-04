@@ -1,0 +1,102 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Niveaux du 4 octobre 2026 (heatmap Coinglass, Binance BTC/USDT perp, 3 jours)
+#  Ils se périment vite : après valid_until, le bot n'émet plus de signaux.
+#  Le bot recharge ce fichier tout seul quand tu le modifies (≤ 30 s).
+#  Un scénario dont tu changes un paramètre est réarmé automatiquement.
+# ─────────────────────────────────────────────────────────────────────────────
+
+valid_until = "2026-10-06T00:00:00+02:00"
+timezone = "Europe/Paris"
+poll_seconds = 30          # fréquence de lecture des prix
+replay_hours = 6           # au tout premier démarrage, relit les 6 dernières heures (silencieux)
+max_alert_age_min = 20     # un déclenchement plus vieux que ça (bot coupé) = « trop tard »
+
+[data]
+# Ordre de priorité, bascule automatique si une source ne répond pas.
+# Binance et Bybit bloquent les IP américaines : héberge en Europe.
+sources = ["mexc", "binance", "bybit", "coinbase"]
+symbol_mexc = "BTC_USDT"
+symbol_binance = "BTCUSDT"
+symbol_bybit = "BTCUSDT"
+symbol_coinbase = "BTC-USD"
+
+[account]
+capital_usd = 2000              # budget casino sur le compte (pas de recharge)
+margin_usage = 0.95             # part max du capital mise en marge sur UN trade
+mmr = 0.004                     # marge de maintenance approx. (la plateforme fait foi)
+taker_fee = 0.0005              # frais par côté, pour l'estimation (vérifie tes frais MEXC)
+max_leverage = 50
+min_liq_ratio = 2.5             # liquidation au moins 2,5x plus loin que le SL, sinon taille réduite
+qty_step = 0.001                # arrondi de la taille en BTC
+move_sl_to_be_after_tp1 = true  # après TP1, SL remonté au prix d'entrée
+min_final_r = 1.5               # si le dernier TP vaut moins de 1,5R (SL trop loin), pas de trade
+virtual_trade_max_hours = 72    # durée max du suivi virtuel d'un signal
+
+[touch_alerts]
+# Simples alertes « niveau touché », en plus des scénarios.
+enabled = true
+levels = [85250, 85400, 84450]
+rearm_pct = 0.3                 # réarmement quand le prix s'éloigne de 0,3 %
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Deux types de scénarios :
+#   sweep_reversal  : mèche au-delà d'un niveau (balayage), puis clôture qui
+#                     revient de l'autre côté → trade dans le sens du retour.
+#   breakout_retest : clôture au-delà d'un niveau, puis retest qui tient
+#                     → trade dans le sens de la cassure.
+#  tps = [[prix, % de la position], ...]   (les % sont renormalisés à 100)
+#  Pour ajouter un scénario demain : copie un bloc, change la lettre et les niveaux.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[scenarios.A]
+enabled = true
+type = "sweep_reversal"
+name = "Balayage 85 250 échoué"
+direction = "short"
+sweep_level = 85250             # une mèche (plus haut 15m) ≥ 85 250 arme le scénario
+trigger_tf = "15m"
+trigger_close = 85100           # puis clôture 15m < 85 100 → déclenché
+cancel_tf = "1h"
+cancel_close = 85400            # clôture 1h > 85 400 = acceptation au-dessus → annulé
+entry_zone = [84900, 85150]     # entrée valable seulement dans cette zone
+entry_limit = 85100
+sl = 85550
+sl_buffer = 150                 # SL = le plus haut entre 85 550 et (mèche + 150)
+tps = [[84500, 50], [83700, 50]]
+risk_usd = 450
+expire_hours = 6                # 6 h après la mèche sans déclenchement → expiré
+
+[scenarios.B]
+enabled = true
+type = "breakout_retest"
+name = "Cassure 85 400 + retest"
+direction = "long"
+breakout_tf = "1h"
+breakout_close = 85400          # clôture 1h > 85 400 arme le scénario
+retest_touch = 85350            # puis le prix revient toucher ≤ 85 350…
+retest_hold_close = 85300       # …et une clôture 15m ≥ 85 300 → déclenché
+fail_close = 85200              # clôture 15m < 85 200 après la cassure = cassure ratée → annulé
+entry_zone = [85250, 85450]
+entry_limit = 85300
+sl = 84750
+tps = [[86200, 50], [87050, 50]]
+risk_usd = 450
+expire_hours = 12               # pas de retest en 12 h → expiré (on ne chasse pas)
+
+[scenarios.C]
+enabled = true
+type = "sweep_reversal"
+name = "Balayage 83 600 repris"
+direction = "long"
+sweep_level = 83800             # une mèche ≤ 83 800 (dans le bloc 83 500–83 800) arme
+trigger_tf = "1h"
+trigger_close = 84000           # puis clôture 1h > 84 000 → déclenché
+cancel_tf = "4h"
+cancel_close = 83300            # clôture 4h < 83 300 = thèse morte → annulé
+entry_zone = [83950, 84400]
+entry_limit = 84050
+sl = 83150
+sl_buffer = 150                 # SL = le plus bas entre 83 150 et (mèche − 150)
+tps = [[85150, 40], [86200, 35], [87050, 25]]
+risk_usd = 600
+expire_hours = 24
